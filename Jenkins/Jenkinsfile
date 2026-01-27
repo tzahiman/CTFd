@@ -1,0 +1,76 @@
+pipeline {
+    agent any
+
+    parameters {
+        booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: 'Check this to tear down all AWS resources.')
+    }
+
+    environment {
+        TF_CHDIR = "terraform/" // Path to your root terraform directory
+        AWS_DEFAULT_REGION = "us-east-1"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // Pulls the code from your Version Control System (GitHub/GitLab)
+                checkout scm
+            }
+        }
+
+        stage('Terraform Plan') {
+            when { expression { !params.DESTROY_INFRA } }
+            steps {
+                sh 'terraform -chdir=$TF_CHDIR init'
+                sh 'terraform -chdir=$TF_CHDIR plan -out=tfplan'
+            }
+        }
+
+        stage('Terraform Apply / Infrastructure Setup') {
+            when { expression { !params.DESTROY_INFRA } }
+            steps {
+                // Apply the infrastructure and the AMI bonus logic
+                sh 'terraform -chdir=$TF_CHDIR apply -auto-approve tfplan'
+                
+                // Export outputs to the CTFd plugin directory
+                sh 'terraform -chdir=$TF_CHDIR output -json > ./reachability/tf_output.json'
+                
+                script {
+                    echo "Infrastructure deployed. Vulnerable Target IP: "
+                    sh "terraform -chdir=$TF_CHDIR output target_ip"
+                }
+            }
+        }
+
+        stage('Deploy/Update CTFd') {
+            when { expression { !params.DESTROY_INFRA } }
+            steps {
+                // Ensure the plugin is in the right place before Docker-Compose
+                sh 'mkdir -p ./CTFd/plugins/reachability'
+                sh 'cp -r ./reachability/* ./CTFd/plugins/reachability/'
+                
+                // Launch or update CTFd services
+                sh 'docker-compose -f ./CTFd/docker-compose.yml up -d --build'
+            }
+        }
+
+        stage('Cleanup Infrastructure') {
+            when { expression { params.DESTROY_INFRA } }
+            steps {
+                echo "Destroying infrastructure as requested..."
+                sh 'terraform -chdir=$TF_CHDIR destroy -auto-approve'
+                sh 'docker-compose -f ./CTFd/docker-compose.yml down'
+            }
+        }
+    }
+
+    post {
+        always {
+            // Clean up workspace or sensitive plan files
+            deleteDir()
+        }
+        failure {
+            echo "Pipeline failed. Check Terraform logs or AWS Security Group limits."
+        }
+    }
+}
