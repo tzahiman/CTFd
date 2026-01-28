@@ -41,16 +41,24 @@ pipeline {
                 }
             }
         }
-
-        stage('Deploy/Update CTFd') {
-            when { expression { !params.DESTROY_INFRA } }
+        stage('Pass Outputs to CTFd') {
             steps {
-                // Ensure the plugin is in the right place before Docker-Compose
-                sh 'mkdir -p ./CTFd/plugins/reachability'
-                sh 'cp -r ./reachability/* ./CTFd/plugins/reachability/'
-                
-                // Launch or update CTFd services
-                sh 'docker-compose -f ./CTFd/docker-compose.yml up -d --build'
+                script {
+                    // Extract Terraform outputs
+                    def instanceId = sh(script: "terraform output -raw instance_id", returnStdout: true).trim()
+                    def publicIp = sh(script: "terraform output -raw public_ip", returnStdout: true).trim()
+                    
+                    // Send to CTFd API endpoint
+                    sh """
+                        curl -X POST http://ctfd-server:8000/api/v1/plugins/validation/config \
+                        -H "Authorization: Token YOUR_CTFD_API_TOKEN" \
+                        -H "Content-Type: application/json" \
+                        -d '{
+                            "instance_id": "${instanceId}",
+                            "public_ip": "${publicIp}"
+                        }'
+                    """
+                }
             }
         }
 

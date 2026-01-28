@@ -1,4 +1,4 @@
-output "target_ip" {
+output "vulnerable_instance_ip" {
   description = "Public IP of the final vulnerable CTF target"
   value       = module.compute.target_public_ip
 }
@@ -11,4 +11,8 @@ output "target_instance_id" {
 output "vulnerable_ami_id" {
   description = "The ID of the AMI created from the configured base"
   value       = module.compute.ctf_ami_id # Ensure this is exported in the compute module
+}
+output "private_key_pem" {
+  value     = module.compute.private_key_pem
+  sensitive = true
 }

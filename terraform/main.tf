@@ -8,5 +8,4 @@ module "compute" {
   vpc_id           = module.networking.vpc_id
   public_subnet_id = module.networking.public_subnet_id
   security_group_id = module.networking.security_group_id
-  key_name         = "ctf-key" # Assumes you have this key in AWS
 }

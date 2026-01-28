@@ -1,0 +1,3 @@
+CTFd/plugins/reachability/__pycache__
+terraform/.terraform*
+terraform/terraform.tfstate
