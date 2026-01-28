@@ -1,9 +1,9 @@
-output "vulnerable_instance_ip" {
+output "instance_ip" {
   description = "Public IP of the final vulnerable CTF target"
   value       = module.compute.target_public_ip
 }
 
-output "target_instance_id" {
+output "instance_id" {
   description = "Instance ID of the final target"
   value       = module.compute.target_instance_id
 }
