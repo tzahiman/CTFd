@@ -1,1 +1,1 @@
-docker run -p 8000:8000 --cap-add=NET_RAW --name ctfd -v "$(pwd)/plugins/reachability:/opt/CTFd/CTFd/plugins/reachability" -it ctfd/ctfd
+docker run -p 8000:8000 --cap-add=NET_RAW --name ctfd -v "$(pwd)/plugins/reachability:/opt/CTFd/CTFd/plugins/reachability" -d ctfd/ctfd && docker exec --user=root ctfd apt update && docker exec --user=root ctfd apt install -y iputils-ping
