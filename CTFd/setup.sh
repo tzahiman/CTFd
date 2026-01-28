@@ -1,3 +1,1 @@
-git clone https://github.com/CTFd/CTFd.git
-cd CTFd
-docker-compose up -d
+docker run -p 8000:8000 --cap-add=NET_RAW --name ctfd -v "$(pwd)/plugins/reachability:/opt/CTFd/CTFd/plugins/reachability" -it ctfd/ctfd

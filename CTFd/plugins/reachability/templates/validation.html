@@ -1,0 +1,64 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="jumbotron">
+    <div class="container">
+        <h1>Infrastructure Validator</h1>
+    </div>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-md-12">
+            <h3>EC2 Connectivity Test</h3>
+            <p>This tool validates that the vulnerable EC2 instance deployed via Terraform is currently reachable from the CTFd server.</p>
+            
+            <button id="validate-btn" class="btn btn-primary">
+                Run Validation Action
+            </button>
+
+            <hr>
+
+            <div id="result-alert" class="alert d-none" role="alert">
+                <span id="result-message"></span>
+            </div>
+            
+            <pre id="raw-output" class="bg-light p-3 d-none"></pre>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('validate-btn').addEventListener('click', function() {
+    const btn = this;
+    const alert = document.getElementById('result-alert');
+    const msg = document.getElementById('result-message');
+    
+    btn.disabled = true;
+    btn.innerHTML = "Pinging...";
+    alert.classList.add('d-none');
+
+    fetch('/api/v1/terraform/ping', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'CSRF-Token': init.csrfNonce
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert.classList.remove('d-none', 'alert-success', 'alert-danger');
+        alert.classList.add(data.success ? 'alert-success' : 'alert-danger');
+        msg.innerText = data.message;
+        btn.disabled = false;
+        btn.innerHTML = "Run Validation Action";
+    })
+    .catch(error => {
+        alert.classList.remove('d-none');
+        alert.classList.add('alert-danger');
+        msg.innerText = "Error: " + error;
+        btn.disabled = false;
+    });
+});
+</script>
+{% endblock %}
