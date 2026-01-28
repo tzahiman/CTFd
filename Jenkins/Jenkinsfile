@@ -3,17 +3,20 @@ pipeline {
 
     parameters {
         booleanParam(name: 'DESTROY_INFRA', defaultValue: false, description: 'Check this to tear down all AWS resources.')
+        // Added the URL as a pipeline parameter
+        string(name: 'CTFD_URL', defaultValue: 'http://ctfd-server:8000', description: 'The base URL of your CTFd instance.')
     }
 
     environment {
-        TF_CHDIR = "terraform/" // Path to your root terraform directory
+        TF_CHDIR = "terraform/" 
         AWS_DEFAULT_REGION = "us-east-1"
+        // Ensure you have a 'Secret Text' credential in Jenkins with this ID
+        CTFD_TOKEN = credentials('CTFD_ADMIN_TOKEN') 
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Pulls the code from your Version Control System (GitHub/GitLab)
                 checkout scm
             }
         }
@@ -21,42 +24,32 @@ pipeline {
         stage('Terraform Plan') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
-                sh 'terraform -chdir=$TF_CHDIR init'
-                sh 'terraform -chdir=$TF_CHDIR plan -out=tfplan'
+                sh "terraform -chdir=${TF_CHDIR} init"
+                sh "terraform -chdir=${TF_CHDIR} plan -out=tfplan"
             }
         }
 
-        stage('Terraform Apply / Infrastructure Setup') {
+        stage('Terraform Apply') {
             when { expression { !params.DESTROY_INFRA } }
             steps {
-                // Apply the infrastructure and the AMI bonus logic
-                sh 'terraform -chdir=$TF_CHDIR apply -auto-approve tfplan'
+                sh "terraform -chdir=${TF_CHDIR} apply -auto-approve tfplan"
                 
-                // Export outputs to the CTFd plugin directory
-                sh 'terraform -chdir=$TF_CHDIR output -json > ./reachability/tf_output.json'
-                
-                script {
-                    echo "Infrastructure deployed. Vulnerable Target IP: "
-                    sh "terraform -chdir=$TF_CHDIR output target_ip"
-                }
+                // Save JSON for the plugin to consume (as requested in previous turn)
+                sh "terraform -chdir=${TF_CHDIR} output -json > tf_output.json"
             }
         }
+
         stage('Pass Outputs to CTFd') {
+            when { expression { !params.DESTROY_INFRA } }
             steps {
                 script {
-                    // Extract Terraform outputs
-                    def instanceId = sh(script: "terraform output -raw instance_id", returnStdout: true).trim()
-                    def publicIp = sh(script: "terraform output -raw public_ip", returnStdout: true).trim()
-                    
-                    // Send to CTFd API endpoint
+                    // Using the JSON file we just created to send to the API
+                    // This matches the API endpoint we created in the plugin code
                     sh """
-                        curl -X POST http://ctfd-server:8000/api/v1/plugins/validation/config \
-                        -H "Authorization: Token YOUR_CTFD_API_TOKEN" \
+                        curl -X POST ${params.CTFD_URL}/api/v1/terraform/output \
+                        -H "Authorization: Bearer ${CTFD_TOKEN}" \
                         -H "Content-Type: application/json" \
-                        -d '{
-                            "instance_id": "${instanceId}",
-                            "public_ip": "${publicIp}"
-                        }'
+                        -d @tf_output.json
                     """
                 }
             }
@@ -65,9 +58,8 @@ pipeline {
         stage('Cleanup Infrastructure') {
             when { expression { params.DESTROY_INFRA } }
             steps {
-                echo "Destroying infrastructure as requested..."
-                sh 'terraform -chdir=$TF_CHDIR destroy -auto-approve'
-                sh 'docker-compose -f ./CTFd/docker-compose.yml down'
+                echo "Destroying infrastructure..."
+                sh "terraform -chdir=${TF_CHDIR} destroy -auto-approve"
             }
         }
     }
