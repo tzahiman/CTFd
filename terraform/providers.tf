@@ -11,7 +11,7 @@ terraform {
     }
   }
   backend "s3" {
-    bucket         = "terraform-state-bucket"             # Name of your S3 bucket
+    bucket         = "ctfd-terraform-state-bucket"             # Name of your S3 bucket
     key            = "dev/terraform.tfstate"              # Path within the bucket
     region         = "us-east-1"                          # Region of the bucket
   }
