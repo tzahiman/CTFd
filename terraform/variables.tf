@@ -1,8 +1,3 @@
-variable "aws_region" {
-  description = "The AWS region to deploy the CTF infrastructure"
-  type        = string
-  default     = "us-east-1"
-}
 
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
